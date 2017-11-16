@@ -8,7 +8,7 @@ public class BaseThiefClass : BaseHero {
 	public BaseThiefClass() {
 		PlayerName = "Aipombomb";
 		ClassName = "Thief";
-		Strength = 9;
+		Strength = 20;
 		Wisdom = 11;
 		Agility = 20;
 		AttackSpeed = 45;

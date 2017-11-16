@@ -56,7 +56,7 @@ public class SupportStateMachine : MonoBehaviour {
 		case(TurnState.WAITING):
 			break;
 		case(TurnState.ACTION):
-			if(myAttack.targetGameObject.tag != "DeadEnemy") {
+			if(myAttack.attackersTarget.tag != "DeadEnemy") {
 				if (targetEnemy.currentState != EnemyStateMachine.TurnState.ACTION) {
 					// if multiple enemies targeting one enemy, they'll wait so no more than one attack can hit the player at a time.
 					// not 100% sure this will work if both enemies attack at the same time, but seems to be working so far.
@@ -66,7 +66,7 @@ public class SupportStateMachine : MonoBehaviour {
 			else {
 				//target died
 				if (BSM.enemiesInBattle.Count > 0)
-					myAttack.targetGameObject = BSM.enemiesInBattle [Random.Range (0, BSM.enemiesInBattle.Count)];
+					myAttack.attackersTarget = BSM.enemiesInBattle [Random.Range (0, BSM.enemiesInBattle.Count)];
 				else
 					Debug.Log ("WINNER");
 			}
@@ -111,12 +111,12 @@ public class SupportStateMachine : MonoBehaviour {
 		myAttack.attacker = this.gameObject.name;
 		myAttack.type = "SupportPlayer";
 		myAttack.attackerGameObject = this.gameObject;
-		myAttack.targetGameObject = BSM.enemiesInBattle[Random.Range (0, BSM.enemiesInBattle.Count)];
+		myAttack.attackersTarget = BSM.enemiesInBattle[Random.Range (0, BSM.enemiesInBattle.Count)];
 
 		// Choosing attack
 		int randAtk = Random.Range (0, supportPlayer.attacks.Count);
 		myAttack.chosenAttack = supportPlayer.attacks[randAtk];
-		targetEnemy = myAttack.targetGameObject.GetComponent<EnemyStateMachine>();
+		targetEnemy = myAttack.attackersTarget.GetComponent<EnemyStateMachine>();
 		BSM.CollectActions(myAttack);
 	}
 
@@ -143,8 +143,6 @@ public class SupportStateMachine : MonoBehaviour {
 			yield return null;
 		}
 
-		// remove hero from being attacked list 
-		BSM.enemiesBeingAttacked.Remove(enemyToAttack);
 
 		if (BSM.battleStates != BattleStateMachine.PerformAction.WIN && BSM.battleStates != BattleStateMachine.PerformAction.LOSE) {
 			// Reset BSM => Wait

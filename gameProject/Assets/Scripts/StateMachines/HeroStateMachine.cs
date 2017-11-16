@@ -16,7 +16,7 @@ public class HeroStateMachine : MonoBehaviour {
 	private BattleStateMachine BSM;
 	public BaseHero hero;
 	public EnemyStateMachine targetEnemy;
-	public GameObject selectedTargetCharacter; // Selected enemy
+	public GameObject selectedAttackerTarget;
 
 	// Hero panel
 	private BattleScreenPlayerStats BSPlayerStats;
@@ -26,6 +26,7 @@ public class HeroStateMachine : MonoBehaviour {
 	private float currentCooldown=0f;  // cooldown
 	private float maxCooldown=3f;
 	public GameObject selector;
+	private HandleTurns thisPlayerHandleTurn;
 
 	//IENumerator
 	public GameObject enemyToAttack;
@@ -49,7 +50,7 @@ public class HeroStateMachine : MonoBehaviour {
 		currentState = TurnState.PROCESSING;
 		startPosition = transform.position;
 		alive = true;
-		selectedTargetCharacter = BSM.enemiesInBattle[0]; // selects first enemy by default
+		selectedAttackerTarget = BSM.enemiesInBattle [0];
 		BSM.enemiesInBattle[0].transform.Find("Selector").gameObject.SetActive(true); // sets selector to first enemy by default
 	}
 
@@ -64,7 +65,7 @@ public class HeroStateMachine : MonoBehaviour {
 			UpgradeProgressBar();
 			break;
 		case(TurnState.ADDTOLIST):
-			BSM.HerosToManage.Add (this.gameObject);
+			BSM.HerosToManage.Add(this.gameObject);
 			currentState = TurnState.WAITING;
 			break;
 		case(TurnState.WAITING):
@@ -72,21 +73,9 @@ public class HeroStateMachine : MonoBehaviour {
 		case(TurnState.SELECTING):
 			break;
 		case(TurnState.ACTION):
-			if(targetEnemy.tag != "DeadEnemy") {
-				if (targetEnemy.currentState != EnemyStateMachine.TurnState.ACTION) {
-					// if multiple enemies targeting one enemy, they'll wait so no more than one attack can hit the player at a time.
-					// not 100% sure this will work if both enemies attack at the same time, but seems to be working so far.
-					StartCoroutine (TimeForAction ());
-				}
-			}
-			else {
-				//target died
-				if (BSM.enemiesInBattle.Count > 0) { // ISSUE HERE (NULL)
-					myAttack.targetGameObject = BSM.enemiesInBattle [Random.Range (0, BSM.enemiesInBattle.Count)];
-				}
-				else
-					Debug.Log ("WINNER");
-			}
+			// if multiple enemies targeting one enemy, they'll wait so no more than one attack can hit the player at a time.
+			// not 100% sure this will work if both enemies attack at the same time, but seems to be working so far.
+			StartCoroutine (TimeForAction ());				
 			break;
 		case(TurnState.DEAD):
 			if (!alive) {
@@ -99,17 +88,23 @@ public class HeroStateMachine : MonoBehaviour {
 				// not managable
 				BSM.HerosToManage.Remove(this.gameObject);
 				// deactive attack options / maybe enable button to revive?
-				BSM.basicAttackButton.interactable = false;
+				BSM.actionPanel.SetActive(false);
 				// deactivate selector
 
-				// if in perform list / done input > remove him
-				// change this
-
+				//remove enemy from hero's target if it was being targeted
+				if (BSM.herosInBattle.Count > 0) {
+					for (int i = 0; i < BSM.performList.Count; i++) {
+						if (BSM.performList [i].attackersTarget == this.gameObject) {
+							BSM.performList [i].attackersTarget = BSM.herosInBattle [Random.Range (0, BSM.herosInBattle.Count)];
+						}
+						if (BSM.performList [i].attackerGameObject == this.gameObject) {
+							BSM.performList.Remove (BSM.performList [i]);
+						}
+					}
+				}
 				// change color / sprite / dead animation
 				//this.gameObject.GetComponent<MeshRenderer>().material.color = new Color32(105,105,105,255);
 				Debug.Log("HERO IS DEAD");
-				// reset hero input
-				BSM.heroInput = BattleStateMachine.HeroGUI.ACTIVATE;
 				alive = false;
 				BSM.battleStates = BattleStateMachine.PerformAction.CHECKALIVE;
 			}
@@ -123,25 +118,15 @@ public class HeroStateMachine : MonoBehaviour {
 		if (Physics.Raycast (interactionRay, out interactionInfo, Mathf.Infinity)) {
 			GameObject interactedObject = interactionInfo.collider.gameObject;
 			if (interactedObject.tag == "Enemy") {
-				if (selectedTargetCharacter != interactedObject) {
-					selectedTargetCharacter.GetComponent<EnemyStateMachine> ().selector.SetActive (false);
-				}
-				selectedTargetCharacter = interactedObject;
-				selectedTargetCharacter.GetComponent<EnemyStateMachine> ().selector.SetActive (true);
+				selectedAttackerTarget.GetComponent<EnemyStateMachine> ().selector.SetActive (false);				
+				selectedAttackerTarget = interactedObject;
+				selectedAttackerTarget.GetComponent<EnemyStateMachine> ().selector.SetActive (true);
 				Debug.Log ("Selected: " + interactedObject.name);
 			} else if (interactedObject.tag == "Player") {
-				if (selectedTargetCharacter != interactedObject) {
-					selectedTargetCharacter.GetComponent<HeroStateMachine> ().selector.SetActive (false);
-				}
-				selectedTargetCharacter = interactedObject;
-				selectedTargetCharacter.GetComponent<HeroStateMachine> ().selector.SetActive (true);
-				Debug.Log ("Selected: " + interactedObject.name);
-			} else if (interactedObject.tag == "SupportPlayer") {
-				if (selectedTargetCharacter != interactedObject) {
-					selectedTargetCharacter.GetComponent<SupportStateMachine> ().selector.SetActive (false);
-				}
-				selectedTargetCharacter = interactedObject;
-				selectedTargetCharacter.GetComponent<SupportStateMachine> ().selector.SetActive (true);
+				// fix later for healing select
+				selectedAttackerTarget.GetComponent<HeroStateMachine> ().selector.SetActive (false);
+				selectedAttackerTarget = interactedObject;
+				selectedAttackerTarget.GetComponent<HeroStateMachine> ().selector.SetActive (true);
 				Debug.Log ("Selected: " + interactedObject.name);
 			} else {
 				Debug.Log ("Didn't select character. Selected: " + interactedObject.name);
@@ -150,11 +135,7 @@ public class HeroStateMachine : MonoBehaviour {
 	}
 
 	void UpgradeProgressBar() {
-		currentCooldown = currentCooldown + Time.deltaTime;
-
-		if (currentCooldown >= maxCooldown) {
-			currentState = TurnState.ADDTOLIST;
-		}
+		currentState = TurnState.ADDTOLIST;
 	}
 
 	private IEnumerator TimeForAction() {
@@ -180,15 +161,11 @@ public class HeroStateMachine : MonoBehaviour {
 			yield return null;
 		}
 
-		// remove hero from being attacked list 
-		BSM.enemiesBeingAttacked.Remove(enemyToAttack);
+		// remove performer from list
+		BSM.performList.RemoveAt(0);
 
 		if (BSM.battleStates != BattleStateMachine.PerformAction.WIN && BSM.battleStates != BattleStateMachine.PerformAction.LOSE) {
-			// Reset BSM => Wait
-			BSM.battleStates = BattleStateMachine.PerformAction.WAIT;
-
-			// Reset this enemy state
-			//currentCooldown = 0f; // Enemy attack at the same time
+			// Reset BSM => Wait		
 			currentCooldown = Random.Range (0f, 1f); // Can start as much as one second faster > different random attack times (need better solution)
 			currentState = TurnState.PROCESSING;
 		} else {

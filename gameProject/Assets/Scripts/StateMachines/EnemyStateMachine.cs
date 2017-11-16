@@ -6,8 +6,6 @@ public class EnemyStateMachine : MonoBehaviour {
 
 	private BattleStateMachine BSM;
 	public BaseEnemy enemy;
-	private HeroStateMachine targetPlayer;
-	private SupportStateMachine supportTarget;
 
 	public enum TurnState {
 		PROCESSING,
@@ -19,7 +17,7 @@ public class EnemyStateMachine : MonoBehaviour {
 
 	public TurnState currentState;
 	private float currentCooldown=0f;
-	private float maxCooldown=3f;
+	private float maxCooldown=0.1f;
 
 	// this game object
 	private Vector3 startPosition;
@@ -48,36 +46,19 @@ public class EnemyStateMachine : MonoBehaviour {
 	void Update() {
 		switch (currentState) {
 		case(TurnState.PROCESSING):
+			
 			UpgradeProgressBar();
 			break;
 		case(TurnState.CHOOSEACTION):
-			ChooseAction();
-			currentState = TurnState.WAITING;
+			if (BSM.HerosToManage.Count == 0) {
+				ChooseAction ();
+				currentState = TurnState.WAITING;
+			}
 			break;
 		case(TurnState.WAITING):
 			break;
 		case(TurnState.ACTION):
-			if (myAttack.targetGameObject.tag != "DeadHero") {
-				if (myAttack.targetGameObject.tag == "Player") {
-					// if target is not being attacked && target is not attacking someone 
-					// (might not handle if target is waiting to attack, then attacks)
-					if (targetPlayer.currentState != HeroStateMachine.TurnState.ACTION) {  // ISSUE HERE (NULL)
-						StartCoroutine (TimeForAction ());
-					}
-				} else if (myAttack.targetGameObject.tag == "SupportPlayer") {
-					if (supportTarget.currentState != SupportStateMachine.TurnState.ACTION) {
-						StartCoroutine (TimeForAction ());
-					}
-				} 
-			}
-			else {
-				//target died
-				// Doesn't handle if everyone is dead yet -> game over
-				if (BSM.herosInBattle.Count != 0)
-					myAttack.targetGameObject = BSM.herosInBattle [Random.Range (0, BSM.herosInBattle.Count)];
-				else
-					Debug.Log ("GAME OVER");
-			}
+			StartCoroutine (TimeForAction ());
 			break;
 		case(TurnState.DEAD):
 			if (!alive) {
@@ -87,20 +68,25 @@ public class EnemyStateMachine : MonoBehaviour {
 				this.gameObject.tag = "DeadEnemy";
 				// not attackable anymore
 				BSM.enemiesInBattle.Remove(this.gameObject);
-
-				//remove enemy from hero's target if it was being targeted
-				Debug.Log(BSM.playerObject.GetComponent<HeroStateMachine> ().selectedTargetCharacter == this.gameObject);
-				Debug.Log(BSM.enemiesInBattle.Count > 0);
-				if (BSM.playerObject.GetComponent<HeroStateMachine> ().selectedTargetCharacter == this.gameObject &&
-					BSM.enemiesInBattle.Count > 0) {
-					Debug.Log ("Change selected target");
-					BSM.playerObject.GetComponent<HeroStateMachine> ().selectedTargetCharacter = BSM.enemiesInBattle [0];
-					BSM.enemiesInBattle[0].GetComponent<EnemyStateMachine> ().selector.SetActive (true);
-				}
-
 				// deactivate selector
 				selector.SetActive(false);
 
+				//remove enemy from hero's target if it was being targeted
+				if (BSM.enemiesInBattle.Count > 0) {
+					for (int i = 0; i < BSM.performList.Count; i++) {
+						if (BSM.performList [i].attackersTarget == this.gameObject) {
+							int rand = Random.Range (0, BSM.enemiesInBattle.Count);
+							BSM.performList [i].attackersTarget = BSM.enemiesInBattle[rand];
+							BSM.HeroChoice.attackersTarget = BSM.enemiesInBattle[rand];
+							BSM.HeroChoice.attackerGameObject.GetComponent<HeroStateMachine>().selectedAttackerTarget = 
+								BSM.HeroChoice.attackersTarget;
+						}
+						if (BSM.performList [i].attackerGameObject == this.gameObject) {
+							BSM.performList.Remove (BSM.performList [i]);
+						}
+					}
+				}
+					
 				// change color / sprite / dead animation
 				this.gameObject.GetComponent<MeshRenderer>().material.color = new Color32(105,105,105,255);
 
@@ -125,17 +111,11 @@ public class EnemyStateMachine : MonoBehaviour {
 		myAttack.attacker = this.gameObject.name;
 		myAttack.type = "Enemy";
 		myAttack.attackerGameObject = this.gameObject;
-		myAttack.targetGameObject = BSM.herosInBattle[Random.Range (0, BSM.herosInBattle.Count)];
+		myAttack.attackersTarget = BSM.herosInBattle[Random.Range (0, BSM.herosInBattle.Count)];
 
 		// choosing attack
-		//enemy.setAttacks();
 		int randAtk = Random.Range (0, enemy.attacks.Count);
 		myAttack.chosenAttack = enemy.attacks[randAtk];
-		if (myAttack.targetGameObject.tag == "Player") {
-			targetPlayer = myAttack.targetGameObject.GetComponent<HeroStateMachine> ();
-		} else {
-			supportTarget = myAttack.targetGameObject.GetComponent<SupportStateMachine> ();
-		}
 		BSM.CollectActions(myAttack);
 	}
 
@@ -156,18 +136,18 @@ public class EnemyStateMachine : MonoBehaviour {
 
 		// do damage
 		DoDamage();
+
 		// animate back to position
 		Vector3 firstPosition = startPosition;
 		while (MoveTowardsStart (firstPosition)) {
 			yield return null;
 		}
-
-		// remove hero from being attacked list 
-		BSM.herosBeingAttacked.Remove(heroToAttack);
+		// remove performer from list
+		BSM.performList.RemoveAt(0);
 
 		if (BSM.battleStates != BattleStateMachine.PerformAction.WIN && BSM.battleStates != BattleStateMachine.PerformAction.LOSE) {
 			// Reset BSM => Wait
-			BSM.battleStates = BattleStateMachine.PerformAction.WAIT;
+			//BSM.battleStates = BattleStateMachine.PerformAction.WAIT;
 
 			// Reset this enemy state
 			//currentCooldown = 0f; // Enemy attack at the same time
@@ -191,11 +171,7 @@ public class EnemyStateMachine : MonoBehaviour {
 	void DoDamage() {
 		/*enemy.Strength*/
 		float calc_damage = 5 + myAttack.chosenAttack.attackDamage;
-		if (heroToAttack.tag == "Player") {
-			heroToAttack.GetComponent<HeroStateMachine> ().TakeDamage (calc_damage);
-		} else if (heroToAttack.tag == "SupportPlayer") {
-			heroToAttack.GetComponent<SupportStateMachine> ().TakeDamage (calc_damage);
-		}
+		heroToAttack.GetComponent<HeroStateMachine> ().TakeDamage (calc_damage);
 	}
 
 	public void TakeDamage(float damageAmount) {

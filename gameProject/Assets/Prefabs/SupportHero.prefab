@@ -22,9 +22,11 @@ GameObject:
   - component: {fileID: 33154819399786724}
   - component: {fileID: 136673727308117180}
   - component: {fileID: 23395190323457584}
+  - component: {fileID: 114131572507511908}
+  - component: {fileID: 114742776381357250}
   m_Layer: 0
   m_Name: SupportHero
-  m_TagString: SupportPlayer
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -164,6 +166,36 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &114131572507511908
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1476173242185626}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ee52aedb7871214ca505ad6d65cecd8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hero: {fileID: 0}
+  targetEnemy: {fileID: 0}
+  selectedTargetCharacter: {fileID: 0}
+  heroPanel: {fileID: 0}
+  currentState: 0
+  selector: {fileID: 1763820736310784}
+  enemyToAttack: {fileID: 0}
+--- !u!114 &114742776381357250
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1476173242185626}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f3d7ffa45f177946aa77edf205a9be0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  attacks: []
 --- !u!136 &136673727308117180
 CapsuleCollider:
   m_ObjectHideFlags: 1
